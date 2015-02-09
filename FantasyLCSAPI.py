@@ -1,10 +1,48 @@
 import requests
-
+from datetime import *
 #r = requests.get(format("http://na.lolesports.com:80/api/player/{0}", str(player_id)))
 #print r.status_code
 #json = r.json()
 #print json
+
+NALCS = 197
+EULCS = 195
+
+cur_date = date.today()
+one_week = date.today() + timedelta(weeks=1)
 html_string = "http://na.lolesports.com:80/api{0}/{1}.json{2}"
+
+class TeamStats:
+    def __init__(self, JSON, game_id, player_id):
+        pass
+
+
+class PlayerStats:
+    def calc_points(self):
+        points = (self.kills * 2) + (self.deaths * (-.5)) + self.assists * 1.5 + (self.minion_kills * 0.01)\
+            + (self.triple_kills * 2) + (self.quadra_kills * 5)\
+            + (self.penta_kills * 10)
+        if (self.kills + self.assists) > 10:
+            print self.kills + self.assists
+            points += 2
+        return points
+
+    def __init__(self, JSON, game_id, player_id):
+        self.player_id = player_id
+        self.game_id = game_id
+        player_stats = JSON["playerStats"]["game"+str(game_id)]["player"+str(player_id)]
+        self.kills = player_stats["kills"]
+        self.deaths = player_stats["deaths"]
+        self.assists = player_stats["assists"]
+        self.minion_kills = player_stats["minionKills"]
+        self.double_kills = player_stats["doubleKills"]
+        self.triple_kills = player_stats["tripleKills"]
+        self.quadra_kills = player_stats["quadraKills"]
+        self.penta_kills = player_stats["pentaKills"]
+        self.fantasy_points = self.calc_points()
+
+
+
 
 
 class Player:
@@ -24,6 +62,7 @@ class Team_Player:
         self.role = player["role"]
         self.isStarter = player["isStarter"]
 
+
 class Team:
     def __init__(self, JSON, team_id=0):
         self.name = JSON["name"]
@@ -31,7 +70,7 @@ class Team:
         for player in JSON["roster"]:
             self.roster.append(Team_Player(JSON["roster"][player]))
 
-        self.acroynm = JSON["acronym"]
+        self.acronym = JSON["acronym"]
         self.team_id = team_id
 
 
@@ -77,7 +116,7 @@ def get_team(team_id):
     return Team(r.json(), team_id)
 
 
-def get_teams_in_league(tournament_id):
+def get_teams_in_tournament(tournament_id):
     teams = []
     html = html_string.format("/tournament", tournament_id, "")
     print html
@@ -90,11 +129,24 @@ def get_teams_in_league(tournament_id):
 #  /Game/  #
 
 
-def get_game(game_id):
+def get_game(game_id, cur_date, one_week):
     html = html_string.format("/game", str(game_id), "")
     r = requests.get(html)
     return Game(r.json(), game_id)
 
+
+def get_player_stats_for_game(tournament_id, game_id, player_id):
+    html = html_string.format("", "gameStatsFantasy", "?tournamentId=" + str(tournament_id))
+    r = requests.get(html)
+    return PlayerStats(r.json(), game_id, player_id)
+
+def get_team_stats_for_game(tournament_id, game_id, team_id):
+    html = html_string.format("","gameStatsFantasy", "?touramentId=" + str(tournament_id))
+    t = requests.get(html)
+    return TeamStats(r.json(), game_id, team_id)
+
+
+#  /FANTASY/  #
 
 #  /Tests/  #
 
@@ -104,7 +156,11 @@ def get_game(game_id):
 #     print player.name
 #     print '\t' + player.role
 #     print '\t' + player.id
+#     print '\t' + str(player.profile_url)
 #
-# print get_game(4544)
-# for team in get_teams_in_league(197):
+# print get_game(4544).contestants
+# for team in get_teams_in_tournament(197):
 #     print team.name
+game1 = get_player_stats_for_game(NALCS, 4544, 11)
+game2 = get_player_stats_for_game(NALCS, 4553, 11)
+print game1.fantasy_points + game2.fantasy_points
