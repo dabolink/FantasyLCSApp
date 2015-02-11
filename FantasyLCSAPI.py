@@ -18,16 +18,16 @@ html_string = "http://na.lolesports.com:80/api{0}/{1}.json{2}"
 
 class TeamStats:
     def __init__(self, JSON, game_id, team_id):
-        self.team_id = team_id
-        self.game_id = game_id
-        team_stats = JSON["teamStats"]["game"+str(game_id)]["team"+str(team_id)]
-        self.first_blood = team_stats["firstBlood"]
-        self.towers = team_stats["towersKilled"]
-        self.barons = team_stats["baronsKilled"]
-        self.dragons = team_stats["dragonsKilled"]
-        self.victory = team_stats["matchVictory"]
-        self.game_length = JSON["teamStats"]["game"+str(game_id)]["timePlayed"]
-        self.fantasy_points = self.calc_points()
+            self.team_id = team_id
+            self.game_id = game_id
+            team_stats = JSON["teamStats"]["game"+str(game_id)]["team"+str(team_id)]
+            self.first_blood = team_stats["firstBlood"]
+            self.towers = team_stats["towersKilled"]
+            self.barons = team_stats["baronsKilled"]
+            self.dragons = team_stats["dragonsKilled"]
+            self.victory = team_stats["matchVictory"]
+            self.game_length = JSON["teamStats"]["game"+str(game_id)]["timePlayed"]
+            self.fantasy_points = self.calc_points()
 
     def calc_points(self):
         points = self.first_blood * 2 + self.towers * 1 + self.barons * 2 + self.dragons * 1 + self.victory * 2
@@ -62,6 +62,7 @@ class PlayerStats:
         self.quadra_kills = player_stats["quadraKills"]
         self.penta_kills = player_stats["pentaKills"]
         self.fantasy_points = self.calc_points()
+
 
     def calc_points(self):
         points = (self.kills * 2) + (self.deaths * (-.5)) + self.assists * 1.5 + (self.minion_kills * 0.01)\
@@ -107,11 +108,15 @@ class Team:
 class Game:
     def __init__(self, JSON, game_id):
         self.game_id = game_id
+        self.match_id = JSON["matchId"]
         self.winner_id = JSON["winnerId"]
         self.game_number = JSON["gameNumber"]
         self.max_games = JSON["maxGames"]
         self.game_length = JSON["gameLength"]
         self.contestants = []
+        self.player_ids = []
+        for player_id in JSON["players"]:
+            self.player_ids.append(JSON["players"][player_id]["id"])
         for team in JSON["contestants"]:
             self.contestants.append(get_team(JSON["contestants"][team]["id"]))
 
@@ -146,6 +151,10 @@ class Match:
 
 
 #  /player/  #
+def get_game(game_id):
+    html = html_string.format("/game", "4544", "")
+    r = requests.get(html)
+    return Game(r.json(), game_id)
 
 def get_player(player_id):
     # 11 = Dyrus
@@ -195,19 +204,19 @@ def get_players_in_tournament(tournament_id, role=False):
 def get_matches_for_week(tournament_id, start_date="", end_date="", team_id = ""):
     html = html_string.format("", "schedule", "?tournamentId=" + str(tournament_id) + "")
     r = requests.get(html)
-    games = []
+    matches = []
     JSON = r.json()
     for match in JSON:
         cur_match = Match(JSON[match], JSON[match]["matchId"])
         if end_date >= cur_match.dateTime >= start_date:
-            games.append(cur_match)
-    return games
-
+            matches.append(cur_match)
+    return matches
 
 def get_player_stats_for_game(tournament_id, game_id, player_id):
     html = html_string.format("", "gameStatsFantasy", "?tournamentId=" + str(tournament_id))
     r = requests.get(html)
     return PlayerStats(r.json(), game_id, player_id)
+
 
 def get_team_stats_for_game(tournament_id, game_id, team_id):
     html = html_string.format("", "gameStatsFantasy", "?tournamentId=" + str(tournament_id))
@@ -227,19 +236,26 @@ def get_team_stats_for_game(tournament_id, game_id, team_id):
 #     print '\t' + player.id
 #     print '\t' + str(player.profile_url)
 #
-# print get_game(4544).contestants
 # for team in get_teams_in_tournament(197):
 # #     print team.name
-# start_date = date(2015,01,24)
-# end_date = date(2015,01,27)
+start_date = date(2015, 01, 24)
+end_date = date(2015, 01, 27)
 # game1 = get_team_stats_for_game(NALCS, 4544, 1)
 # game2 = get_team_stats_for_game(NALCS, 4553, 1)
-# for match in get_matches_for_week(NALCS, start_date, end_date):
-#     for game in match.games:
-#         for contestant in match.contestants:
-#             print contestant.name
-#             for player in get_team(contestant.id).roster:
-#                 print player.name
-#                 print get_player_stats_for_game(NALCS, game.id, player.id).fantasy_points
-for player in get_players_in_tournament(NALCS, TOP):
-    print player.name
+# print game1.fantasy_points
+# print game2.fantasy_points
+players = {}
+for match in get_matches_for_week(NALCS, start_date, end_date):
+    for game in match.games:
+        for contestant in match.contestants:
+            print contestant.name
+            for player in get_team(contestant.id).roster:
+                try:
+                    players[player.name] += get_player_stats_for_game(NALCS,game.id, player.id).fantasy_points
+                except KeyError:
+                    players[player.name] = get_player_stats_for_game(NALCS, game.id, player.id).fantasy_points
+print players
+print players["Sheep"]
+
+# for player in get_players_in_tournament(NALCS, TOP):
+#     print player.name
