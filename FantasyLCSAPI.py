@@ -42,7 +42,7 @@ class PlayerStats:
         self.game_id = game_id
         try:
             player_stats = JSON["playerStats"]["game"+str(game_id)]["player"+str(player_id)]
-        except(KeyError):
+        except KeyError:
             self.kills = 0
             self.assists = 0
             self.deaths = 0
@@ -88,7 +88,7 @@ class Player:
 
 class Team_Player:
     def __init__(self, player):
-        self.id = player["playerId"]
+        self.player_id = player["playerId"]
         self.name = player["name"]
         self.role = player["role"]
         self.isStarter = player["isStarter"]
@@ -124,13 +124,13 @@ class Game:
 class Contestant:
     def __init__(self, JSON, contestant):
         self.side = contestant
-        self.id = JSON["id"]
+        self.team_id = JSON["id"]
         self.name = JSON["name"]
 
 
 class MatchGame:
     def __init__(self, JSON):
-        self.id = JSON["id"]
+        self.game_id = JSON["id"]
         self.winner_id = JSON["winnerId"]
 
 
@@ -141,7 +141,8 @@ class Match:
         self.match_id = match_id
         self.games = []
         self.winnerId = JSON["winnerId"]
-        self.isFinished = int(JSON["isFinished"])
+        self.is_finished = int(JSON["isFinished"])
+        self.is_live = int(JSON["isLive"])
         for game in JSON["games"]:
             self.games.append(MatchGame(JSON["games"][game]))
         self.name = JSON["name"]
@@ -225,7 +226,21 @@ def get_team_stats_for_game(tournament_id, game_id, team_id):
 
 
 #  /FANTASY/  #
-
+def get_all_fantasy_points_for_week(tournament_id, start_date, end_date):
+    players = {}
+    for match in get_matches_for_week(tournament_id, start_date, end_date):
+        if not match.is_live and not match.is_finished:
+            continue
+        print match.name
+        for game in match.games:
+            for contestant in match.contestants:
+                for player in get_team(contestant.team_id).roster:
+                    if player.isStarter:
+                        try:
+                            players[player.name] += get_player_stats_for_game(tournament_id, game.game_id, player.player_id).fantasy_points
+                        except KeyError:
+                            players[player.name] = get_player_stats_for_game(tournament_id, game.game_id, player.player_id).fantasy_points
+    return players
 #  /Tests/  #
 
 # print get_team(get_player(11).team_id).name
@@ -238,24 +253,15 @@ def get_team_stats_for_game(tournament_id, game_id, team_id):
 #
 # for team in get_teams_in_tournament(197):
 # #     print team.name
-start_date = date(2015, 01, 24)
-end_date = date(2015, 01, 27)
+start_date = date(2015, 02, 11)
+end_date = date(2015, 02, 15)
+print get_all_fantasy_points_for_week(EULCS, start_date, end_date)
+print get_all_fantasy_points_for_week(NALCS, start_date, end_date)
 # game1 = get_team_stats_for_game(NALCS, 4544, 1)
 # game2 = get_team_stats_for_game(NALCS, 4553, 1)
 # print game1.fantasy_points
 # print game2.fantasy_points
-players = {}
-for match in get_matches_for_week(NALCS, start_date, end_date):
-    for game in match.games:
-        for contestant in match.contestants:
-            print contestant.name
-            for player in get_team(contestant.id).roster:
-                try:
-                    players[player.name] += get_player_stats_for_game(NALCS,game.id, player.id).fantasy_points
-                except KeyError:
-                    players[player.name] = get_player_stats_for_game(NALCS, game.id, player.id).fantasy_points
-print players
-print players["Sheep"]
+
 
 # for player in get_players_in_tournament(NALCS, TOP):
 #     print player.name
